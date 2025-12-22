@@ -1,38 +1,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Utensils, Users, Zap, ArrowRight, Coffee, Stethoscope, LogIn } from 'lucide-react';
+import { Utensils, Users, Zap, Coffee, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/context/AuthContext';
 
 const Index: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, profile, demoLogin, isLoading } = useAuth();
 
-  const handleClientDemo = async () => {
-    const { error } = await demoLogin('client');
-    if (!error) {
-      navigate('/locations');
-    }
+  const handleClientDemo = () => {
+    navigate('/locations');
   };
 
-  const handleStaffDemo = async (location: 'medical' | 'bitbites') => {
-    const demoRole = location === 'medical' ? 'staff-medical' : 'staff-bitbites';
-    const { error } = await demoLogin(demoRole);
-    if (!error) {
-      navigate('/staff');
-    }
-  };
-
-  const handleGetStarted = () => {
-    if (isAuthenticated && profile) {
-      if (profile.role === 'staff') {
-        navigate('/staff');
-      } else {
-        navigate('/locations');
-      }
-    } else {
-      navigate('/auth');
-    }
+  const handleStaffDemo = () => {
+    navigate('/staff/location');
   };
 
   return (
@@ -47,49 +26,76 @@ const Index: React.FC = () => {
           <div className="mx-auto max-w-4xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/50 px-4 py-2 backdrop-blur-sm animate-fade-in">
               <Zap className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Fast & Easy Ordering</span>
+              <span className="text-sm font-medium">🚀 Demo Version • No Login Required</span>
             </div>
 
             <h1 className="mb-6 font-display text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl animate-slide-up">
-              Order Food,{' '}
-              <span className="gradient-text">Skip the Line</span>
+              QuickBite{' '}
+              <span className="gradient-text">Express</span>
             </h1>
 
             <p className="mb-10 text-lg text-muted-foreground sm:text-xl max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              Quick ordering from Medical Cafeteria and Bit Bites. 
-              Place your order, get a token, and pick up when ready.
+              Order food instantly. Enter just your name. 
+              Get a token. Skip the queue.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            {/* Main Demo Buttons */}
+            <div className="flex flex-col sm:flex-row gap-6 justify-center animate-slide-up max-w-lg mx-auto" style={{ animationDelay: '0.2s' }}>
               <Button
                 variant="hero"
                 size="xl"
-                onClick={handleGetStarted}
-                className="gap-2"
+                onClick={handleClientDemo}
+                className="flex-1 py-8 text-xl gap-3"
               >
-                <Utensils className="h-5 w-5" />
-                {isAuthenticated ? 'Continue Ordering' : 'Get Started'}
-                <ArrowRight className="h-5 w-5" />
+                <span className="text-3xl">👤</span>
+                <div className="text-left">
+                  <div className="font-bold">I'M A CLIENT</div>
+                  <div className="text-xs font-normal opacity-80">Order food • Get token</div>
+                </div>
               </Button>
               
-              {!isAuthenticated && (
-                <Button
-                  variant="outline"
-                  size="xl"
-                  onClick={() => navigate('/auth')}
-                  className="gap-2"
-                >
-                  <LogIn className="h-5 w-5" />
-                  Sign In
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="xl"
+                onClick={handleStaffDemo}
+                className="flex-1 py-8 text-xl gap-3 border-2"
+              >
+                <span className="text-3xl">👨‍🍳</span>
+                <div className="text-left">
+                  <div className="font-bold">I'M STAFF</div>
+                  <div className="text-xs font-normal opacity-80">Manage orders • Real-time</div>
+                </div>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Highlights */}
+      <section className="py-16 bg-card/30">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="bg-card p-6 rounded-xl shadow-sm border border-border/50 text-center">
+              <div className="text-3xl mb-3">⚡</div>
+              <h3 className="font-bold text-lg mb-2">Instant Access</h3>
+              <p className="text-sm text-muted-foreground">No signup forms. Just click and start.</p>
+            </div>
+            <div className="bg-card p-6 rounded-xl shadow-sm border border-border/50 text-center">
+              <div className="text-3xl mb-3">📱</div>
+              <h3 className="font-bold text-lg mb-2">Name Only</h3>
+              <p className="text-sm text-muted-foreground">Enter just your name to place order.</p>
+            </div>
+            <div className="bg-card p-6 rounded-xl shadow-sm border border-border/50 text-center">
+              <div className="text-3xl mb-3">🔄</div>
+              <h3 className="font-bold text-lg mb-2">Real-time</h3>
+              <p className="text-sm text-muted-foreground">Staff dashboard updates instantly.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Locations Preview */}
-      <section className="py-20 bg-card/30">
+      <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl font-bold mb-4">Two Locations, One App</h2>
@@ -139,7 +145,7 @@ const Index: React.FC = () => {
       </section>
 
       {/* Features */}
-      <section className="py-20">
+      <section className="py-20 bg-card/30">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             <div className="text-center">
@@ -155,7 +161,7 @@ const Index: React.FC = () => {
                 <Zap className="h-8 w-8 text-primary-foreground" />
               </div>
               <h3 className="font-display text-lg font-bold mb-2">Instant Token</h3>
-              <p className="text-sm text-muted-foreground">Get your unique token immediately after payment</p>
+              <p className="text-sm text-muted-foreground">Get your unique token immediately after order</p>
             </div>
 
             <div className="text-center">
@@ -164,50 +170,6 @@ const Index: React.FC = () => {
               </div>
               <h3 className="font-display text-lg font-bold mb-2">Skip the Queue</h3>
               <p className="text-sm text-muted-foreground">No waiting in line, just pick up when ready</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Staff Demo Section */}
-      <section className="py-20 bg-card/30">
-        <div className="container mx-auto px-4">
-          <div className="max-w-2xl mx-auto text-center">
-            <h2 className="font-display text-2xl font-bold mb-4">Quick Demo Access</h2>
-            <p className="text-muted-foreground mb-8">
-              Try the app instantly without registration
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                variant="default"
-                size="lg"
-                onClick={handleClientDemo}
-                className="gap-2"
-                disabled={isLoading}
-              >
-                <Utensils className="h-4 w-4" />
-                Customer Demo
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => handleStaffDemo('medical')}
-                className="gap-2"
-                disabled={isLoading}
-              >
-                <Stethoscope className="h-4 w-4" />
-                Medical Staff Demo
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => handleStaffDemo('bitbites')}
-                className="gap-2"
-                disabled={isLoading}
-              >
-                <Coffee className="h-4 w-4" />
-                Bit Bites Staff Demo
-              </Button>
             </div>
           </div>
         </div>

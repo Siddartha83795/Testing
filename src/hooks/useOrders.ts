@@ -25,8 +25,6 @@ interface CreateOrderInput {
   items: CartItem[];
   location: Location;
   clientName: string;
-  clientPhone?: string;
-  tableNumber?: string;
 }
 
 const generateToken = (location: Location): string => {
@@ -48,14 +46,14 @@ export const useCreateOrder = () => {
         .from('orders')
         .insert({
           token,
-          user_id: user?.id || null,
+          user_id: null, // Demo mode - no auth required
           location: input.location as 'medical' | 'bitbites',
           items: JSON.parse(JSON.stringify(input.items)),
           total,
           status: 'pending' as const,
           client_name: input.clientName,
-          client_phone: input.clientPhone || null,
-          table_number: input.tableNumber || null,
+          client_phone: null,
+          table_number: null,
         })
         .select()
         .single();

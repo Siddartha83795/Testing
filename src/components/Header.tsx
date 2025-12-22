@@ -1,20 +1,12 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, LogOut, User, UtensilsCrossed } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ShoppingCart, UtensilsCrossed, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/context/CartContext';
-import { useAuth } from '@/context/AuthContext';
 
 const Header: React.FC = () => {
   const { itemCount, location } = useCart();
-  const { profile, isAuthenticated, signOut } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
-  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -29,40 +21,22 @@ const Header: React.FC = () => {
         </Link>
 
         <div className="flex items-center gap-3">
-          {isAuthenticated && profile ? (
-            <>
-              <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
-                <User className="h-4 w-4" />
-                <span>{profile.name}</span>
-                {profile.role === 'staff' && (
-                  <Badge variant="outline" className="text-xs">
-                    Staff
+          <Link to="/">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <Home className="h-4 w-4" />
+              <span className="hidden sm:inline">Home</span>
+            </Button>
+          </Link>
+
+          {location && (
+            <Link to="/menu">
+              <Button variant="glass" size="sm" className="relative">
+                <ShoppingCart className="h-4 w-4" />
+                {itemCount > 0 && (
+                  <Badge className="absolute -right-2 -top-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                    {itemCount}
                   </Badge>
                 )}
-              </div>
-
-              {profile.role === 'client' && location && (
-                <Link to="/menu">
-                  <Button variant="glass" size="sm" className="relative">
-                    <ShoppingCart className="h-4 w-4" />
-                    {itemCount > 0 && (
-                      <Badge className="absolute -right-2 -top-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                        {itemCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </Link>
-              )}
-
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline ml-1">Logout</span>
-              </Button>
-            </>
-          ) : (
-            <Link to="/auth">
-              <Button variant="outline" size="sm">
-                Login
               </Button>
             </Link>
           )}

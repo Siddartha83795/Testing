@@ -1,22 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
-import { RefreshCw, LogOut } from 'lucide-react';
+import { useNavigate, useLocation as useRouterLocation } from 'react-router-dom';
+import { RefreshCw, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OrderCard from '@/components/OrderCard';
-import { useAuth } from '@/context/AuthContext';
 import { useLocationOrders, useUpdateOrderStatus, OrderStatus } from '@/hooks/useOrders';
+import { Location } from '@/types';
 
 const StaffDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { profile, signOut, isLoading: authLoading } = useAuth();
+  const routerLocation = useRouterLocation();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  const staffLocation = profile?.location;
+  // Get location from route state
+  const staffLocation = (routerLocation.state?.location as Location) || null;
+  
   const { data: locationOrders = [], isLoading: ordersLoading, refetch } = useLocationOrders(staffLocation!);
   const updateOrderStatus = useUpdateOrderStatus();
+
+  // Redirect if no location selected
+  useEffect(() => {
+    if (!staffLocation) {
+      navigate('/staff/location');
+    }
+  }, [staffLocation, navigate]);
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -27,16 +36,8 @@ const StaffDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [refetch]);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!profile || profile.role !== 'staff') {
-    return <Navigate to="/" replace />;
+  if (!staffLocation) {
+    return null;
   }
 
   const filteredOrders = statusFilter === 'all' 
@@ -49,9 +50,8 @@ const StaffDashboard: React.FC = () => {
 
   const locationName = staffLocation === 'medical' ? 'Medical Cafeteria' : 'Bit Bites';
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
+  const handleBackToLocation = () => {
+    navigate('/staff/location');
   };
 
   const handleStatusUpdate = (orderId: string, newStatus: OrderStatus) => {
@@ -68,12 +68,27 @@ const StaffDashboard: React.FC = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div>
-            <h1 className="font-display text-xl font-bold">Staff Dashboard</h1>
-            <p className="text-sm text-muted-foreground">{locationName}</p>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBackToLocation}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Change Location</span>
+            </Button>
+            <div>
+              <h1 className="font-display text-xl font-bold">Staff Dashboard</h1>
+              <p className="text-sm text-muted-foreground">{locationName}</p>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-success rounded-full animate-pulse"></div>
+              <span className="text-sm hidden sm:inline">Live</span>
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -82,10 +97,6 @@ const StaffDashboard: React.FC = () => {
             >
               <RefreshCw className="h-4 w-4" />
               <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
         </div>
@@ -156,7 +167,9 @@ const StaffDashboard: React.FC = () => {
 
             {filteredOrders.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-muted-foreground">No orders found</p>
+                <div className="text-5xl mb-4">📭</div>
+                <h3 className="text-xl font-medium text-foreground mb-2">No orders yet</h3>
+                <p className="text-muted-foreground">Orders will appear here in real-time</p>
               </div>
             )}
           </>

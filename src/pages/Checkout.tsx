@@ -15,8 +15,6 @@ const Checkout: React.FC = () => {
   const createOrderMutation = useCreateOrder();
   
   const [clientName, setClientName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
-  const [tableNumber, setTableNumber] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (!location || items.length === 0) {
@@ -37,8 +35,6 @@ const Checkout: React.FC = () => {
         items,
         location,
         clientName: clientName.trim(),
-        clientPhone: clientPhone.trim() || undefined,
-        tableNumber: tableNumber.trim() || undefined,
       });
 
       clearCart();
@@ -137,43 +133,23 @@ const Checkout: React.FC = () => {
           </div>
         </div>
 
-        {/* Customer Details */}
+        {/* Customer Details - ONLY NAME */}
         <div className="rounded-xl border border-border/50 bg-card p-6 mb-6">
-          <h2 className="font-semibold text-lg mb-4">Your Details</h2>
+          <h2 className="font-semibold text-lg mb-4">What's your name?</h2>
           
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                placeholder="Enter your name"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="phone">Phone (optional)</Label>
-              <Input
-                id="phone"
-                placeholder="Enter your phone number"
-                value={clientPhone}
-                onChange={(e) => setClientPhone(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="table">Table Number (optional)</Label>
-              <Input
-                id="table"
-                placeholder="e.g., T-5"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                className="mt-1"
-              />
-            </div>
+          <div>
+            <Label htmlFor="name">Name *</Label>
+            <Input
+              id="name"
+              placeholder="Enter your name"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              className="mt-1 text-lg py-6"
+              autoFocus
+            />
+            <p className="text-sm text-muted-foreground mt-2">
+              That's all we need! No phone, email, or table number required.
+            </p>
           </div>
         </div>
 
@@ -183,23 +159,28 @@ const Checkout: React.FC = () => {
           size="lg"
           className="w-full gap-2"
           onClick={handlePayment}
-          disabled={isProcessing}
+          disabled={isProcessing || !clientName.trim()}
         >
           {isProcessing ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
               Processing...
             </>
+          ) : clientName.trim() ? (
+            <>
+              <CreditCard className="h-5 w-5" />
+              Place Order as {clientName}
+            </>
           ) : (
             <>
               <CreditCard className="h-5 w-5" />
-              Pay ₹{total}
+              Enter your name to continue
             </>
           )}
         </Button>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
-          This is a demo payment. No actual payment will be processed.
+          This is a demo. Token will be generated immediately after order.
         </p>
       </main>
     </div>
