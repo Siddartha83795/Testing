@@ -1,12 +1,20 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { ShoppingCart, UtensilsCrossed, Home } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingCart, UtensilsCrossed, Home, LogIn, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 
 const Header: React.FC = () => {
   const { itemCount, location } = useCart();
+  const { isAuthenticated, profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -27,6 +35,27 @@ const Header: React.FC = () => {
               <span className="hidden sm:inline">Home</span>
             </Button>
           </Link>
+
+          {isAuthenticated && profile ? (
+            <>
+              <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground px-2">
+                <User className="h-4 w-4" />
+                <span>{profile.name}</span>
+                {profile.role === 'staff' && (
+                  <Badge variant="secondary" className="text-xs">Staff</Badge>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={() => navigate('/auth')} className="gap-2">
+              <LogIn className="h-4 w-4" />
+              <span className="hidden sm:inline">Login</span>
+            </Button>
+          )}
 
           {location && (
             <Link to="/menu">
