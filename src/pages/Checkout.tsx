@@ -1,21 +1,31 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Loader2, Minus, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, CreditCard, Loader2, Minus, Plus, Trash2, CheckCircle2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Header from '@/components/Header';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { toast } from 'sonner';
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const { items, total, location, clearCart, updateQuantity, removeItem } = useCart();
+  const { isAuthenticated, profile } = useAuth();
   const createOrderMutation = useCreateOrder();
   
-  const [clientName, setClientName] = useState('');
+  // Use profile name if logged in, otherwise empty for manual entry
+  const [clientName, setClientName] = useState(profile?.name || '');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Update name when profile loads
+  React.useEffect(() => {
+    if (profile?.name) {
+      setClientName(profile.name);
+    }
+  }, [profile]);
 
   if (!location || items.length === 0) {
     navigate('/menu');
@@ -39,7 +49,6 @@ const Checkout: React.FC = () => {
 
       clearCart();
       
-      // Navigate to confirmation with the order data
       navigate('/confirmation', { 
         state: { 
           order: {
@@ -78,6 +87,23 @@ const Checkout: React.FC = () => {
           <h1 className="font-display text-2xl font-bold">Checkout</h1>
           <p className="text-muted-foreground">Review your order for {locationName}</p>
         </div>
+
+        {/* Auto-filled Banner for Logged-in Users */}
+        {isAuthenticated && profile && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-primary">Details Auto-filled!</p>
+                <p className="text-sm text-muted-foreground">
+                  Welcome back, {profile.name}. Your details are ready.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Order Summary */}
         <div className="rounded-xl border border-border/50 bg-card p-6 mb-6">
@@ -133,23 +159,35 @@ const Checkout: React.FC = () => {
           </div>
         </div>
 
-        {/* Customer Details - ONLY NAME */}
+        {/* Customer Details */}
         <div className="rounded-xl border border-border/50 bg-card p-6 mb-6">
-          <h2 className="font-semibold text-lg mb-4">What's your name?</h2>
+          <h2 className="font-semibold text-lg mb-4">
+            {isAuthenticated ? 'Confirm Your Details' : "What's your name?"}
+          </h2>
           
           <div>
             <Label htmlFor="name">Name *</Label>
-            <Input
-              id="name"
-              placeholder="Enter your name"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              className="mt-1 text-lg py-6"
-              autoFocus
-            />
-            <p className="text-sm text-muted-foreground mt-2">
-              That's all we need! No phone, email, or table number required.
-            </p>
+            <div className="relative mt-1">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="name"
+                placeholder="Enter your name"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                className="pl-10 text-lg py-6"
+                autoFocus={!isAuthenticated}
+                readOnly={isAuthenticated && !!profile?.name}
+              />
+            </div>
+            {isAuthenticated && profile ? (
+              <p className="text-sm text-muted-foreground mt-2">
+                ✅ Using your saved profile details
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-2">
+                That's all we need! Login next time for faster checkout.
+              </p>
+            )}
           </div>
         </div>
 
@@ -180,7 +218,7 @@ const Checkout: React.FC = () => {
         </Button>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
-          This is a demo. Token will be generated immediately after order.
+          Token will be generated immediately after order.
         </p>
       </main>
     </div>
