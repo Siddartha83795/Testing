@@ -1,90 +1,103 @@
-import React, { useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSupabase } from "@/integrations/supabase/client";
-import { useLocationOrders, useUpdateOrderStatus, OrderStatus } from "@/hooks/useOrders";
-import { Location } from "@/types";
-import { useToast } from "@/hooks/use-toast";
+import { Location, CartItem } from "@/types";
+import { API_BASE_URL, fetchConfig } from "@/api/config";
 
-const StaffDashboard: React.FC = () => {
-  const { toast } = useToast();
+/* ---------------- TYPES ---------------- */
+
+export type OrderStatus =
+  | "pending"
+  | "preparing"
+  | "ready"
+  | "completed";
+
+/* ---------------- HELPERS ---------------- */
+
+const getCurrentUserId = async (): Promise<string | null> => {
   const supabase = getSupabase();
+  if (!supabase) return null;
 
-  const location = Location.MEDICAL; // or BITBITES depending on your logic
-  const { orders, refetch } = useLocationOrders(location);
-  const updateStatus = useUpdateOrderStatus();
-
-  // ---------------- REALTIME SUBSCRIPTION ----------------
-  useEffect(() => {
-    if (!supabase) {
-      toast({
-        title: "Realtime disabled",
-        description: "Supabase not configured. Live updates unavailable.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const channel = supabase
-      .channel("orders-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-        },
-        () => {
-          refetch();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, refetch, toast]);
-
-  // ---------------- UI ----------------
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Staff Dashboard</h1>
-
-      {orders?.length === 0 && (
-        <p className="text-muted-foreground">No orders available</p>
-      )}
-
-      <div className="space-y-4">
-        {orders?.map((order) => (
-          <div
-            key={order.id}
-            className="border rounded-lg p-4 flex justify-between items-center"
-          >
-            <div>
-              <p className="font-semibold">Order #{order.token}</p>
-              <p className="text-sm text-muted-foreground">
-                Status: {order.status}
-              </p>
-            </div>
-
-            <select
-              value={order.status}
-              onChange={(e) =>
-                updateStatus.mutate({
-                  orderId: order.id,
-                  status: e.target.value as OrderStatus,
-                })
-              }
-              className="border rounded px-2 py-1"
-            >
-              <option value="pending">Pending</option>
-              <option value="preparing">Preparing</option>
-              <option value="ready">Ready</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
 };
 
-export default StaffDashboard;
+/* ---------------- HOOKS ---------------- */
+
+export const useLocationOrders = (location: Location) => {
+  return useQuery({
+    queryKey: ["orders", location],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE_URL}/orders/location/${location}`
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch orders");
+      }
+
+      return res.json();
+    },
+    refetchInterval: 5000,
+  });
+};
+
+export const useCreateOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (items: CartItem[]) => {
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error("User not authenticated");
+
+      const res = await fetch(`${API_BASE_URL}/orders`, {
+        ...fetchConfig,
+        method: "POST",
+        body: JSON.stringify({
+          userId,
+          items,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to create order");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+};
+
+export const useUpdateOrderStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      status,
+    }: {
+      orderId: string;
+      status: OrderStatus;
+    }) => {
+      const res = await fetch(
+        `${API_BASE_URL}/orders/${orderId}/status`,
+        {
+          ...fetchConfig,
+          method: "PATCH",
+          body: JSON.stringify({ status }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to update order status");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+};
