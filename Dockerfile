@@ -1,4 +1,4 @@
-FROM node:20
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -7,9 +7,10 @@ RUN npm ci
 
 COPY . .
 
-# Build the Vite app
+# BUILD with env vars
 RUN npm run build
 
 EXPOSE 8080
 
-CMD ["npm", "start"]
+# Serve production build
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "8080"]
