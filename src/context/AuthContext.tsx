@@ -1,15 +1,21 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { Location } from '@/types';
-import { API_BASE_URL, fetchConfig } from '@/api/config';
-import { useToast } from '@/hooks/use-toast';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { User, Session } from "@supabase/supabase-js";
+import { getSupabase } from "@/integrations/supabase/client";
+import { Location } from "@/types";
+import { API_BASE_URL, fetchConfig } from "@/api/config";
+import { useToast } from "@/hooks/use-toast";
 
-type AppRole = 'client' | 'staff' | 'admin';
+type AppRole = "client" | "staff" | "admin";
 
 interface UserProfile {
-  id: string; // MongoDB _id
-  userId: string; // Supabase ID
+  id: string;
+  userId: string;
   name: string;
   email: string;
   phone?: string;
@@ -23,221 +29,162 @@ interface AuthContextType {
   profile: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signUp: (email: string, password: string, name: string, phone?: string, role?: AppRole, location?: Location) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    phone?: string,
+    role?: AppRole,
+    location?: Location
+  ) => Promise<{ error: Error | null }>;
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  demoLogin: (role: 'client' | 'staff-medical' | 'staff-bitbites') => Promise<{ error: Error | null }>;
+  demoLogin: (
+    role: "client" | "staff-medical" | "staff-bitbites"
+  ) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Demo credentials
+// Demo users
 const DEMO_CREDENTIALS = {
-  client: { email: 'client@demo.com', password: 'demo123456' },
-  'staff-medical': { email: 'staff-med@demo.com', password: 'demo123456' },
-  'staff-bitbites': { email: 'staff-bit@demo.com', password: 'demo123456' },
+  client: { email: "client@demo.com", password: "demo123456" },
+  "staff-medical": { email: "staff-med@demo.com", password: "demo123456" },
+  "staff-bitbites": { email: "staff-bit@demo.com", password: "demo123456" },
 };
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const supabase = getSupabase();
+  const { toast } = useToast();
+
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
 
-  // Fetch user profile from MongoDB
+  // ---------------- FETCH PROFILE ----------------
   const fetchProfile = async (currentUser: User) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/users/${currentUser.id}`).catch(err => {
-        console.error('Frontend Fetch Error:', err);
-        return null;
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/users/${currentUser.id}`
+      ).catch(() => null);
 
       if (response && response.ok) {
-        const profileData = await response.json();
+        const data = await response.json();
         return {
-          id: profileData.id || profileData._id,
-          userId: profileData.userId,
-          name: profileData.name,
-          email: profileData.email,
-          phone: profileData.phone,
-          role: profileData.role as AppRole,
-          location: profileData.location as Location | undefined,
+          id: data.id || data._id,
+          userId: data.userId,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          role: data.role,
+          location: data.location,
         } as UserProfile;
       }
 
-      // If 404 (User exists in Supabase but not in MongoDB), create it
-      // OR if fetch failed (response is null), fallback to metadata temporarily
-      if (!response || response.status === 404) {
-        console.log('Profile not found in MongoDB or Backend Down, falling back to metadata...');
-
-        if (!response) {
-          toast({
-            title: "Backend Connection Issue",
-            description: "Could not connect to the backend. Using temporary profile data.",
-            variant: "destructive",
-          });
-        }
-
-        const metadata = currentUser.user_metadata;
-        const newProfile = {
-          userId: currentUser.id,
-          email: currentUser.email || '',
-          name: metadata.name || 'User',
-          role: (metadata.role as AppRole) || 'client',
-          phone: metadata.phone || undefined,
-          location: metadata.location as Location | undefined,
-        };
-
-        // Try to create in Mongo if backend is reachable (i.e. it was a 404)
-        if (response && response.status === 404) {
-          const createResponse = await fetch(`${API_BASE_URL}/users`, {
-            ...fetchConfig,
-            method: 'POST',
-            body: JSON.stringify(newProfile),
-          }).catch(() => null);
-
-          if (createResponse && createResponse.ok) {
-            const createdProfile = await createResponse.json();
-            return {
-              id: createdProfile.id || createdProfile._id,
-              userId: createdProfile.userId,
-              name: createdProfile.name,
-              email: createdProfile.email,
-              phone: createdProfile.phone,
-              role: createdProfile.role as AppRole,
-              location: createdProfile.location as Location | undefined,
-            } as UserProfile;
-          }
-        }
-
-        // Final Fallback: Return a "TEMPORARY" profile constructed from metadata
-        // This allows the user to browse/redirect even if backend is dead.
-        return {
-          id: 'temp-id',
-          userId: newProfile.userId,
-          name: newProfile.name,
-          email: newProfile.email,
-          phone: newProfile.phone,
-          role: newProfile.role,
-          location: newProfile.location,
-        } as UserProfile;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error in fetchProfile:', error);
-      toast({
-        title: "Profile Load Error",
-        description: "An unexpected error occurred while loading your profile. Using temporary data.",
-        variant: "destructive",
-      });
-      // Even in catch, try to fallback
-      const metadata = currentUser.user_metadata;
+      // Fallback to metadata
+      const meta = currentUser.user_metadata;
       return {
-        id: 'temp-id',
+        id: "temp-id",
         userId: currentUser.id,
-        name: metadata.name || 'User',
-        email: currentUser.email || '',
-        phone: metadata.phone,
-        role: (metadata.role as AppRole) || 'client',
-        location: metadata.location as Location | undefined,
-      } as UserProfile;
+        name: meta.name || "User",
+        email: currentUser.email || "",
+        phone: meta.phone,
+        role: meta.role || "client",
+        location: meta.location,
+      };
+    } catch {
+      return null;
     }
   };
 
+  // ---------------- INIT AUTH ----------------
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
+
+    const { data } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
 
-        // Defer profile fetch to avoid deadlock
         if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user).then(setProfile);
-          }, 0);
+          const p = await fetchProfile(session.user);
+          setProfile(p);
         } else {
           setProfile(null);
         }
+        setIsLoading(false);
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data }) => {
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
 
-      if (session?.user) {
-        fetchProfile(session.user).then((p) => {
-          setProfile(p);
-          setIsLoading(false);
-        });
-      } else {
-        setIsLoading(false);
+      if (data.session?.user) {
+        const p = await fetchProfile(data.session.user);
+        setProfile(p);
       }
+      setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, [supabase]);
 
-  const createMongoProfile = async (userId: string, email: string, name: string, role: AppRole, phone?: string, location?: Location) => {
-    try {
-      await fetch(`${API_BASE_URL}/users`, {
-        ...fetchConfig,
-        method: 'POST',
-        body: JSON.stringify({
-          userId,
-          email,
-          name,
-          role,
-          phone,
-          location
-        })
-      });
-    } catch (e) {
-      console.error("Failed to create Mongo Profile", e);
-    }
-  };
-
+  // ---------------- AUTH ACTIONS ----------------
   const signUp = async (
     email: string,
     password: string,
     name: string,
     phone?: string,
-    role: AppRole = 'client',
+    role: AppRole = "client",
     location?: Location
-  ): Promise<{ error: Error | null }> => {
-    const redirectUrl = `${window.location.origin}/`;
+  ) => {
+    if (!supabase)
+      return { error: new Error("Auth service unavailable") };
 
-    // 1. Sign up in Supabase (Auth only)
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          name,
-          phone, // We still keep metadata in Supabase for convenience/fallback
-          role,
-          location
-        }
+        data: { name, phone, role, location },
       },
     });
 
     if (error) return { error: new Error(error.message) };
 
-    // 2. Create Profile in MongoDB
     if (data.user) {
-      await createMongoProfile(data.user.id, email, name, role, phone, location);
+      await fetch(`${API_BASE_URL}/users`, {
+        ...fetchConfig,
+        method: "POST",
+        body: JSON.stringify({
+          userId: data.user.id,
+          email,
+          name,
+          role,
+          phone,
+          location,
+        }),
+      }).catch(() => null);
     }
 
     return { error: null };
   };
 
-  const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
+  const signIn = async (email: string, password: string) => {
+    if (!supabase)
+      return { error: new Error("Auth service unavailable") };
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -247,63 +194,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signOut = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     setProfile(null);
   };
 
-  const demoLogin = async (role: 'client' | 'staff-medical' | 'staff-bitbites'): Promise<{ error: Error | null }> => {
-    const credentials = DEMO_CREDENTIALS[role];
+  const demoLogin = async (
+    role: "client" | "staff-medical" | "staff-bitbites"
+  ) => {
+    if (!supabase)
+      return { error: new Error("Auth service unavailable") };
 
-    // Try to sign in first
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: credentials.email,
-      password: credentials.password,
-    });
+    const creds = DEMO_CREDENTIALS[role];
+    const { error } = await supabase.auth.signInWithPassword(creds);
 
-    if (!signInError) {
-      return { error: null };
-    }
-
-    // If sign in failed (user doesn't exist), create the demo account
-    if (signInError.message.includes('Invalid login credentials')) {
-      const demoRole: AppRole = role === 'client' ? 'client' : 'staff';
-      const demoLocation: Location | undefined = role === 'staff-medical' ? 'medical' : role === 'staff-bitbites' ? 'bitbites' : undefined;
-      const demoName = role === 'client' ? 'Demo Customer' : role === 'staff-medical' ? 'Medical Staff' : 'Bit Bites Staff';
-
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: credentials.email,
-        password: credentials.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            name: demoName,
-            role: demoRole,
-            location: demoLocation,
-          },
-        },
-      });
-
-      if (signUpError) {
-        return { error: new Error(signUpError.message) };
-      }
-
-      // Create Profile in MongoDB
-      if (data.user) {
-        await createMongoProfile(data.user.id, credentials.email, demoName, demoRole, undefined, demoLocation);
-      }
-
-      // Auto-confirm is enabled, so try signing in again
-      const { error: retryError } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
-      });
-
-      return { error: retryError ? new Error(retryError.message) : null };
-    }
-
-    return { error: new Error(signInError.message) };
+    return { error: error ? new Error(error.message) : null };
   };
 
+  // ---------------- CONTEXT ----------------
   return (
     <AuthContext.Provider
       value={{
@@ -323,10 +231,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 };
 
+// ---------------- HOOK ----------------
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within AuthProvider");
   }
-  return context;
+  return ctx;
 };
