@@ -7,10 +7,10 @@ RUN npm ci
 
 COPY . .
 
-# BUILD with env vars
+# 🔴 THIS IS WHERE VITE READS .env.production
 RUN npm run build
 
 EXPOSE 8080
 
-# Serve production build
+# 🔴 This serves the built app
 CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "8080"]
